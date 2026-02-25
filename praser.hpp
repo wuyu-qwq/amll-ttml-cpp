@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <map>
 #include <algorithm>
 #include <cmath>
 
@@ -17,9 +18,15 @@ struct Para {
     bool bg;      // 背景歌词，true为背景歌词
     unsigned int startTime;
     unsigned int endTime;
+    unsigned short key;
     std::vector<CharInfo> lyric;
     std::string translation;
     std::string roman;
+};
+
+struct Song {
+    std::vector<Para> lyrics;
+    std::map<std::string, std::vector<std::string>> metadata;
 };
 
 // 时间字符串解析函数（增强版）
@@ -101,16 +108,16 @@ static std::vector<Para> parsePara(tinyxml2::XMLElement* p) {
     Para singlePara;
     std::vector<CharInfo> single;
     
-    const char* agentAttrRaw = p->Attribute("ttm:agent");
-    std::string agentAttr    = agentAttrRaw ? agentAttrRaw : "";
-    singlePara.paraPos       = (agentAttr == "v1");
+    // const char* agentAttrRaw = p->Attribute("ttm:agent");
+    // std::string agentAttr    = agentAttrRaw ? agentAttrRaw : "";
+    // singlePara.paraPos       = (agentAttr == "v1");
     
     tinyxml2::XMLElement* span = p->FirstChildElement("span");
     while (span) {
         const char* roleAttr = span->Attribute("ttm:role");
         const char* text     = span->GetText();
         
-        if (roleAttr == nullptr) {
+        if (roleAttr) {
             const char* beginAttr = span->Attribute("begin");
             const char* endAttr   = span->Attribute("end");
             single.push_back(CharInfo{parseTime(beginAttr), parseTime(endAttr), text});
@@ -126,20 +133,21 @@ static std::vector<Para> parsePara(tinyxml2::XMLElement* p) {
         const char* agentAttrRaw = p->Attribute("ttm:agent");
         const char* ParaBegin    = p->Attribute("begin");
         const char* ParaEnd      = p->Attribute("end");
-        std::string agentAttr    = agentAttrRaw ? agentAttrRaw : "";
+        const char* keyAttr      = p->Attribute("itunes:key");
         
-        singlePara.paraPos   = (agentAttr == "v2");
+        singlePara.paraPos   = !strcmp(agentAttrRaw, "v2");
         singlePara.startTime = parseTime(ParaBegin);
         singlePara.endTime   = parseTime(ParaEnd);
+        singlePara.key       = atoi(keyAttr + 1);
         singlePara.lyric     = single;
-    
+        
         result.push_back(singlePara);
     }
     return result;
 }
 
-std::vector<Para> prase(std::string xmlContent) {
-    std::vector<Para> lyrics;
+Song prase(std::string xmlContent) {
+    Song result;
 
     // 处理空格
     size_t subpos = xmlContent.find("</span> ");
@@ -151,25 +159,37 @@ std::vector<Para> prase(std::string xmlContent) {
     tinyxml2::XMLDocument doc;
     if (doc.Parse(xmlContent.c_str()) != tinyxml2::XML_SUCCESS) {
         std::cerr << "XML解析失败! 错误代码: " << doc.ErrorID() << std::endl;
-        return std::vector<Para>();
+        return Song();
     }
     tinyxml2::XMLElement* tt = doc.FirstChildElement("tt");
-    if (!tt) { std::cerr << "格式错误: 缺少 <tt>" << std::endl; return std::vector<Para>(); }
+    if (!tt) { std::cerr << "格式错误: 缺少 <tt>" << std::endl; return Song(); }
     tinyxml2::XMLElement* body = tt->FirstChildElement("body");
-    if (!body) { std::cerr << "格式错误: 缺少 <body>" << std::endl; return std::vector<Para>(); }
+    if (!body) { std::cerr << "格式错误: 缺少 <body>" << std::endl; return Song(); }
     tinyxml2::XMLElement* div = body->FirstChildElement("div");
-    if (!div) { std::cerr << "格式错误: 缺少 <div>" << std::endl; return std::vector<Para>(); }
+    if (!div) { std::cerr << "格式错误: 缺少 <div>" << std::endl; return Song(); }
 
     tinyxml2::XMLElement* p = div->FirstChildElement("p");
     while (p) {
         std::vector<Para> temp = parsePara(p);
-        lyrics.insert(lyrics.end(), temp.begin(), temp.end());
+        result.lyrics.insert(result.lyrics.end(), temp.begin(), temp.end());
         p = p->NextSiblingElement("p");
     }
 
-    if (lyrics.empty()) {
+    if (result.lyrics.empty()) {
         std::cout << "未解析到有效歌词数据！" << std::endl;
-        return std::vector<Para>();
+        return Song();
     }
-    return lyrics;
+
+    tinyxml2::XMLElement* head = tt->FirstChildElement("head");
+    if (!head) { std::cerr << "格式错误: 缺少 <head>" << std::endl; return Song(); }
+    tinyxml2::XMLElement* metadata = head->FirstChildElement("metadata");
+    if (!metadata) { std::cerr << "格式错误: 缺少 <metadata>" << std::endl; return Song(); }
+
+    tinyxml2::XMLElement* meta = metadata->FirstChildElement("amll:meta");
+    while (meta) {
+        result.metadata[meta->Attribute("key")].push_back(meta->Attribute("value"));
+        meta = meta->NextSiblingElement("amll:meta");
+    }
+
+    return result;
 }

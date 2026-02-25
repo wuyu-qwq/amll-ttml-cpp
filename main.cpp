@@ -23,12 +23,14 @@ int main() {
     }
 
     unsigned int time1 = getTime();
-    std::vector<Para> lyrics = prase(xmlContent);
+    Song lyrics = prase(xmlContent);
     unsigned int time2 = getTime();
-    for (Para& para_iter : lyrics) {
-        std::cout << "段落翻译：" << para_iter.translation << std::endl;
-        std::cout << "段落罗马音：" << para_iter.roman << std::endl;
+    for (Para& para_iter : lyrics.lyrics) {
+        std::cout << "段落翻译："     << para_iter.translation << std::endl;
+        std::cout << "段落罗马音："   << para_iter.roman << std::endl;
         std::cout << "是否背景歌词：" << (para_iter.bg ? "是" : "否") << std::endl;
+        std::cout << "对唱歌词："     << (para_iter.paraPos ? "是" : "否") << std::endl;
+        std::cout << "段落key:"       << para_iter.key << std::endl;
         for (CharInfo& char_iter : para_iter.lyric) {
             std::cout << "歌词：" << char_iter.character << std::endl;
             std::cout << "罗马音：" << char_iter.roman << std::endl;
