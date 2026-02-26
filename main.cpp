@@ -8,6 +8,11 @@ unsigned int getTime() {
 }
 
 int main() {
+    #if defined(_WIN32)
+    #include <Windows.h>
+    SetConsoleOutputCP(65001));
+    #endif
+
     // 读取文件内容
     std::ifstream file("./ME!.ttml", std::ios::binary);
     file.seekg(0, std::ios::end);
