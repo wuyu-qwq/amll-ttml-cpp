@@ -9,7 +9,7 @@ unsigned int getTime() {
 
 int main() {
     // 读取文件内容
-    std::ifstream file("./test.ttml", std::ios::binary);
+    std::ifstream file("./一点点.ttml", std::ios::binary);
     file.seekg(0, std::ios::end);
     size_t size = file.tellg();
     file.seekg(0, std::ios::beg);
@@ -31,10 +31,10 @@ int main() {
         std::cout << "是否背景歌词：" << (para_iter.bg ? "是" : "否") << std::endl;
         std::cout << "对唱歌词："     << (para_iter.paraPos ? "是" : "否") << std::endl;
         std::cout << "段落key:"       << para_iter.key << std::endl;
-        for (CharInfo& char_iter : para_iter.lyric) {
-            std::cout << "歌词：" << char_iter.character << std::endl;
-            std::cout << "罗马音：" << char_iter.roman << std::endl;
-        }
+        // for (CharInfo& char_iter : para_iter.lyric) {
+        //     std::cout << "歌词：" << char_iter.character << std::endl;
+        //     std::cout << "罗马音：" << char_iter.roman << std::endl;
+        // }
         std::cout << "--------------------------------" << std::endl;
     }
     std::cout << "解析完成！用时: " << time2-time1 << "ms" << std::endl;

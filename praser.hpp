@@ -103,28 +103,25 @@ static unsigned int parseTime(const char* timeStr) {
     }
 }
 
-static std::vector<Para> parsePara(tinyxml2::XMLElement* p) {
+static std::vector<Para> parsePara(tinyxml2::XMLElement* p, bool recursion) {
     std::vector<Para> result;
     Para singlePara;
     std::vector<CharInfo> single;
-    
-    // const char* agentAttrRaw = p->Attribute("ttm:agent");
-    // std::string agentAttr    = agentAttrRaw ? agentAttrRaw : "";
-    // singlePara.paraPos       = (agentAttr == "v1");
+
     
     tinyxml2::XMLElement* span = p->FirstChildElement("span");
     while (span) {
         const char* roleAttr = span->Attribute("ttm:role");
         const char* text     = span->GetText();
-        
-        if (roleAttr) {
+
+        if (!roleAttr) {
             const char* beginAttr = span->Attribute("begin");
             const char* endAttr   = span->Attribute("end");
             single.push_back(CharInfo{parseTime(beginAttr), parseTime(endAttr), text});
         } else if (strcmp(roleAttr, "x-translation") == 0) singlePara.translation = text;
         else if (strcmp(roleAttr, "x-roman") == 0) singlePara.roman = text;
         else if (strcmp(roleAttr, "x-bg") == 0)
-            result.push_back(parsePara(span)[0]);
+            result.push_back(parsePara(span, true)[0]);
         span = span->NextSiblingElement("span");
     }
     
@@ -135,10 +132,10 @@ static std::vector<Para> parsePara(tinyxml2::XMLElement* p) {
         const char* ParaEnd      = p->Attribute("end");
         const char* keyAttr      = p->Attribute("itunes:key");
         
-        singlePara.paraPos   = !strcmp(agentAttrRaw, "v2");
+        singlePara.paraPos   = recursion ? result[0].paraPos : strcmp(agentAttrRaw, "v2");
         singlePara.startTime = parseTime(ParaBegin);
         singlePara.endTime   = parseTime(ParaEnd);
-        singlePara.key       = atoi(keyAttr + 1);
+        singlePara.key       = keyAttr ? atoi(keyAttr + 1) : 0;
         singlePara.lyric     = single;
         
         result.push_back(singlePara);
@@ -170,7 +167,7 @@ Song prase(std::string xmlContent) {
 
     tinyxml2::XMLElement* p = div->FirstChildElement("p");
     while (p) {
-        std::vector<Para> temp = parsePara(p);
+        std::vector<Para> temp = parsePara(p, false);
         result.lyrics.insert(result.lyrics.end(), temp.begin(), temp.end());
         p = p->NextSiblingElement("p");
     }
