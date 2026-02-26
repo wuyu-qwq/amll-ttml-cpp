@@ -14,8 +14,8 @@ struct CharInfo {
 };
 
 struct Para {
-    bool paraPos; // 段落位置，true为居右
-    bool bg;      // 背景歌词，true为背景歌词
+    bool paraPos;    // 段落位置，true为居右
+    bool bg = false; // 背景歌词，true为背景歌词
     unsigned int startTime;
     unsigned int endTime;
     unsigned short key;
@@ -120,8 +120,10 @@ static std::vector<Para> parsePara(tinyxml2::XMLElement* p, bool recursion) {
             single.push_back(CharInfo{parseTime(beginAttr), parseTime(endAttr), text});
         } else if (strcmp(roleAttr, "x-translation") == 0) singlePara.translation = text;
         else if (strcmp(roleAttr, "x-roman") == 0) singlePara.roman = text;
-        else if (strcmp(roleAttr, "x-bg") == 0)
+        else if (strcmp(roleAttr, "x-bg") == 0) {
             result.push_back(parsePara(span, true)[0]);
+            result.back().bg = true;
+        }
         span = span->NextSiblingElement("span");
     }
     
