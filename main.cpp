@@ -3,18 +3,21 @@
 
 #include "praser.hpp"
 
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+
 unsigned int getTime() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
 int main() {
     #if defined(_WIN32)
-    #include <Windows.h>
-    SetConsoleOutputCP(65001));
+    SetConsoleOutputCP(65001);
     #endif
 
     // 读取文件内容
-    std::ifstream file("./ME!.ttml", std::ios::binary);
+    std::ifstream file("./test.ttml", std::ios::binary);
     file.seekg(0, std::ios::end);
     size_t size = file.tellg();
     file.seekg(0, std::ios::beg);

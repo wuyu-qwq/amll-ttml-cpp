@@ -125,8 +125,7 @@ Song prase(std::string xmlContent) {
     tinyxml2::XMLElement* div = body->FirstChildElement("div");
     if (!div) { std::cerr << "格式错误: 缺少 <div>" << std::endl; return Song(); }
 
-    tinyxml2::XMLElement* p = div->FirstChildElement("p");
-    while (p) {
+    for (tinyxml2::XMLElement* p = div->FirstChildElement("p"); p; p = p->NextSiblingElement("p")) {
         Para singlePara;
         Para bgPara;
 
@@ -157,16 +156,19 @@ Song prase(std::string xmlContent) {
                 bgPara.paraPos   = singlePara.paraPos;
                 for (tinyxml2::XMLElement* bgspan = span->FirstChildElement("span"); bgspan;
                 bgspan = bgspan->NextSiblingElement("span")) {
-                    const char* beginAttr = bgspan->Attribute("begin");
-                    const char* endAttr = bgspan->Attribute("end");
-                    const char* text = bgspan->GetText();
-                    bgPara.lyric.push_back(CharInfo{parseTime(beginAttr), parseTime(endAttr), text});
+                    const char* roleAttr = bgspan->Attribute("ttm:role");
+                    const char* text     = bgspan->GetText();
+                    if (!roleAttr) {
+                        const char* beginAttr = bgspan->Attribute("begin");
+                        const char* endAttr   = bgspan->Attribute("end");
+                        bgPara.lyric.push_back(CharInfo{parseTime(beginAttr), parseTime(endAttr), text});
+                    } else if (strcmp(roleAttr, "x-translation") == 0) bgPara.translation = text;
+                    else if (strcmp(roleAttr, "x-roman") == 0) bgPara.roman = text;
                 }
             }
         }
         result.lyrics.push_back(singlePara);
         if (!bgPara.lyric.empty()) result.lyrics.push_back(bgPara);
-        p = p->NextSiblingElement("p");
     }
 
     if (result.lyrics.empty()) {
@@ -174,16 +176,16 @@ Song prase(std::string xmlContent) {
         return Song();
     }
 
-    // tinyxml2::XMLElement* head = tt->FirstChildElement("head");
-    // if (!head) { std::cerr << "格式错误: 缺少 <head>" << std::endl; return Song(); }
-    // tinyxml2::XMLElement* metadata = head->FirstChildElement("metadata");
-    // if (!metadata) { std::cerr << "格式错误: 缺少 <metadata>" << std::endl; return Song(); }
+    tinyxml2::XMLElement* head = tt->FirstChildElement("head");
+    if (!head) { std::cerr << "格式错误: 缺少 <head>" << std::endl; return Song(); }
+    tinyxml2::XMLElement* metadata = head->FirstChildElement("metadata");
+    if (!metadata) { std::cerr << "格式错误: 缺少 <metadata>" << std::endl; return Song(); }
 
-    // tinyxml2::XMLElement* meta = metadata->FirstChildElement("amll:meta");
-    // while (meta) {
-    //     result.metadata[meta->Attribute("key")].push_back(meta->Attribute("value"));
-    //     meta = meta->NextSiblingElement("amll:meta");
-    // }
+    tinyxml2::XMLElement* meta = metadata->FirstChildElement("amll:meta");
+    while (meta) {
+        result.metadata[meta->Attribute("key")].push_back(meta->Attribute("value"));
+        meta = meta->NextSiblingElement("amll:meta");
+    }
 
     return result;
 }
