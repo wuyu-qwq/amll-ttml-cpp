@@ -18,7 +18,7 @@ struct Para {
     bool bg = false; // 背景歌词，true为背景歌词
     unsigned int startTime;
     unsigned int endTime;
-    unsigned short key;
+    unsigned short key = 0;
     std::vector<CharInfo> lyric;
     std::string translation;
     std::string roman;
@@ -103,48 +103,6 @@ static unsigned int parseTime(const char* timeStr) {
     }
 }
 
-static std::vector<Para> parsePara(tinyxml2::XMLElement* p, bool recursion) {
-    std::vector<Para> result;
-    Para singlePara;
-    std::vector<CharInfo> single;
-
-    
-    tinyxml2::XMLElement* span = p->FirstChildElement("span");
-    while (span) {
-        const char* roleAttr = span->Attribute("ttm:role");
-        const char* text     = span->GetText();
-
-        if (!roleAttr) {
-            const char* beginAttr = span->Attribute("begin");
-            const char* endAttr   = span->Attribute("end");
-            single.push_back(CharInfo{parseTime(beginAttr), parseTime(endAttr), text});
-        } else if (strcmp(roleAttr, "x-translation") == 0) singlePara.translation = text;
-        else if (strcmp(roleAttr, "x-roman") == 0) singlePara.roman = text;
-        else if (strcmp(roleAttr, "x-bg") == 0) {
-            result.push_back(parsePara(span, true)[0]);
-            result.back().bg = true;
-        }
-        span = span->NextSiblingElement("span");
-    }
-    
-    // 设置这一段的属性
-    if (!single.empty()) {
-        const char* agentAttrRaw = p->Attribute("ttm:agent");
-        const char* ParaBegin    = p->Attribute("begin");
-        const char* ParaEnd      = p->Attribute("end");
-        const char* keyAttr      = p->Attribute("itunes:key");
-        
-        singlePara.paraPos   = recursion ? result[0].paraPos : strcmp(agentAttrRaw, "v2");
-        singlePara.startTime = parseTime(ParaBegin);
-        singlePara.endTime   = parseTime(ParaEnd);
-        singlePara.key       = keyAttr ? atoi(keyAttr + 1) : 0;
-        singlePara.lyric     = single;
-        
-        result.push_back(singlePara);
-    }
-    return result;
-}
-
 Song prase(std::string xmlContent) {
     Song result;
 
@@ -169,8 +127,45 @@ Song prase(std::string xmlContent) {
 
     tinyxml2::XMLElement* p = div->FirstChildElement("p");
     while (p) {
-        std::vector<Para> temp = parsePara(p, false);
-        result.lyrics.insert(result.lyrics.end(), temp.begin(), temp.end());
+        Para singlePara;
+        Para bgPara;
+
+        const char* paraKey = p->Attribute("itunes:key");
+        const char* paraPos = p->Attribute("ttm:agent");
+        const char* beginAttr = p->Attribute("begin");
+        const char* endAttr = p->Attribute("end");
+        singlePara.key = std::stoi(paraKey + 1);
+        singlePara.paraPos = strcmp(paraPos, "v2");
+        singlePara.startTime = parseTime(beginAttr);
+        singlePara.endTime = parseTime(endAttr);
+
+        for (tinyxml2::XMLElement* span = p->FirstChildElement("span"); span;
+        span = span->NextSiblingElement("span")) {
+            const char* roleAttr  = span->Attribute("ttm:role");
+            const char* text      = span->GetText();
+            const char* beginAttr = span->Attribute("begin");
+            const char* endAttr   = span->Attribute("end");
+
+            if (!roleAttr)
+                singlePara.lyric.push_back(CharInfo{parseTime(beginAttr), parseTime(endAttr), text});
+            else if (strcmp(roleAttr, "x-translation") == 0) singlePara.translation = text;
+            else if (strcmp(roleAttr, "x-roman") == 0) singlePara.roman = text;
+            else if (strcmp(roleAttr, "x-bg") == 0) {
+                bgPara.startTime = parseTime(beginAttr);
+                bgPara.endTime   = parseTime(endAttr);
+                bgPara.bg        = true;
+                bgPara.paraPos   = singlePara.paraPos;
+                for (tinyxml2::XMLElement* bgspan = span->FirstChildElement("span"); bgspan;
+                bgspan = bgspan->NextSiblingElement("span")) {
+                    const char* beginAttr = bgspan->Attribute("begin");
+                    const char* endAttr = bgspan->Attribute("end");
+                    const char* text = bgspan->GetText();
+                    bgPara.lyric.push_back(CharInfo{parseTime(beginAttr), parseTime(endAttr), text});
+                }
+            }
+        }
+        result.lyrics.push_back(singlePara);
+        if (!bgPara.lyric.empty()) result.lyrics.push_back(bgPara);
         p = p->NextSiblingElement("p");
     }
 
@@ -179,16 +174,16 @@ Song prase(std::string xmlContent) {
         return Song();
     }
 
-    tinyxml2::XMLElement* head = tt->FirstChildElement("head");
-    if (!head) { std::cerr << "格式错误: 缺少 <head>" << std::endl; return Song(); }
-    tinyxml2::XMLElement* metadata = head->FirstChildElement("metadata");
-    if (!metadata) { std::cerr << "格式错误: 缺少 <metadata>" << std::endl; return Song(); }
+    // tinyxml2::XMLElement* head = tt->FirstChildElement("head");
+    // if (!head) { std::cerr << "格式错误: 缺少 <head>" << std::endl; return Song(); }
+    // tinyxml2::XMLElement* metadata = head->FirstChildElement("metadata");
+    // if (!metadata) { std::cerr << "格式错误: 缺少 <metadata>" << std::endl; return Song(); }
 
-    tinyxml2::XMLElement* meta = metadata->FirstChildElement("amll:meta");
-    while (meta) {
-        result.metadata[meta->Attribute("key")].push_back(meta->Attribute("value"));
-        meta = meta->NextSiblingElement("amll:meta");
-    }
+    // tinyxml2::XMLElement* meta = metadata->FirstChildElement("amll:meta");
+    // while (meta) {
+    //     result.metadata[meta->Attribute("key")].push_back(meta->Attribute("value"));
+    //     meta = meta->NextSiblingElement("amll:meta");
+    // }
 
     return result;
 }
