@@ -18,7 +18,7 @@ struct Para {
     bool bg = false; // 背景歌词，true为背景歌词
     unsigned int startTime;
     unsigned int endTime;
-    unsigned short key = 0;
+    std::string key;
     std::vector<CharInfo> lyric;
     std::string translation;
     std::string roman;
@@ -112,7 +112,8 @@ Song prase(std::string xmlContent) {
     	xmlContent.replace(subpos, 8, " </span>");
     	subpos = xmlContent.find("</span> ", subpos+8);
 	}
-    // 解析XML ...
+
+    // 解析正文XML结构
     tinyxml2::XMLDocument doc;
     if (doc.Parse(xmlContent.c_str()) != tinyxml2::XML_SUCCESS) {
         std::cerr << "XML解析失败! 错误代码: " << doc.ErrorID() << std::endl;
@@ -120,11 +121,10 @@ Song prase(std::string xmlContent) {
     }
     tinyxml2::XMLElement* tt = doc.FirstChildElement("tt");
     if (!tt) { std::cerr << "格式错误: 缺少 <tt>" << std::endl; return Song(); }
-    tinyxml2::XMLElement* body = tt->FirstChildElement("body");
-    if (!body) { std::cerr << "格式错误: 缺少 <body>" << std::endl; return Song(); }
-    tinyxml2::XMLElement* div = body->FirstChildElement("div");
-    if (!div) { std::cerr << "格式错误: 缺少 <div>" << std::endl; return Song(); }
+    tinyxml2::XMLElement* div = tt->FirstChildElement("body")->FirstChildElement("div");
+    if (!div) { std::cerr << "格式错误: 缺少 <body>或<div>" << std::endl; return Song(); }
 
+    // 将正文XML数据提取到数据结构
     for (tinyxml2::XMLElement* p = div->FirstChildElement("p"); p; p = p->NextSiblingElement("p")) {
         Para singlePara;
         Para bgPara;
@@ -133,7 +133,7 @@ Song prase(std::string xmlContent) {
         const char* paraPos = p->Attribute("ttm:agent");
         const char* beginAttr = p->Attribute("begin");
         const char* endAttr = p->Attribute("end");
-        singlePara.key = std::stoi(paraKey + 1);
+        singlePara.key = paraKey;
         singlePara.paraPos = strcmp(paraPos, "v2");
         singlePara.startTime = parseTime(beginAttr);
         singlePara.endTime = parseTime(endAttr);
@@ -170,21 +170,37 @@ Song prase(std::string xmlContent) {
         result.lyrics.push_back(singlePara);
         if (!bgPara.lyric.empty()) result.lyrics.push_back(bgPara);
     }
-
     if (result.lyrics.empty()) {
         std::cout << "未解析到有效歌词数据！" << std::endl;
         return Song();
     }
 
-    tinyxml2::XMLElement* head = tt->FirstChildElement("head");
-    if (!head) { std::cerr << "格式错误: 缺少 <head>" << std::endl; return Song(); }
-    tinyxml2::XMLElement* metadata = head->FirstChildElement("metadata");
-    if (!metadata) { std::cerr << "格式错误: 缺少 <metadata>" << std::endl; return Song(); }
+    // 解析头部XML结构
+    tinyxml2::XMLElement* metadata = tt->FirstChildElement("head")->FirstChildElement("metadata");
+    if (!metadata) { std::cerr << "格式错误: 缺少 <head>或<metadata>" << std::endl; return Song(); }
 
+    // 提取头部元数据
     tinyxml2::XMLElement* meta = metadata->FirstChildElement("amll:meta");
-    while (meta) {
+    for (tinyxml2::XMLElement* meta = metadata->FirstChildElement("amll:meta"); meta;
+    meta = meta->NextSiblingElement("amll:meta")) 
         result.metadata[meta->Attribute("key")].push_back(meta->Attribute("value"));
-        meta = meta->NextSiblingElement("amll:meta");
+
+    // 提取逐字音译数据
+    tinyxml2::XMLElement* translation = metadata->FirstChildElement("iTunesMetadata")
+                                                ->FirstChildElement("transliterations")
+                                                ->FirstChildElement("transliteration");
+    std::map<std::string, std::vector<std::string>> romans;
+    for (tinyxml2::XMLElement* trans = translation->FirstChildElement("text"); trans;
+    trans = trans->NextSiblingElement("text")) {
+        std::string key = trans->Attribute("for");
+        for (tinyxml2::XMLElement* span = trans->FirstChildElement("span"); span;
+        span = span->NextSiblingElement("span"))
+            romans[key].push_back(span->GetText());
+    }
+    for (Para& para : result.lyrics) {
+        if (romans[para.key].empty()) continue;
+        for (unsigned short i = 0; i < para.lyric.size(); ++i)
+            para.lyric[i].roman = romans[para.key][i];
     }
 
     return result;

@@ -47,6 +47,11 @@ int main() {
         }
         std::cout << "--------------------------------" << std::endl;
     }
+
+    std::cout << "元数据：" << std::endl;
+    for (auto [key, val] : lyrics.metadata) for (std::string& item : val)
+        std::cout << key << ": " << item << std::endl;
+
     std::cout << "解析完成！用时: " << time2-time1 << "ms" << std::endl;
     return 0;
 }
