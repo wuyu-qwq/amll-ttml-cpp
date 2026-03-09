@@ -1,7 +1,9 @@
-#include <fstream>
+#pragma once
+
 #include <chrono>
 
 #include "praser.hpp"
+#include "binary.hpp"
 
 #if defined(_WIN32)
 #include <windows.h>
