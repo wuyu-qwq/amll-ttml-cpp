@@ -57,9 +57,12 @@ int main() {
     // std::cout << "解析完成！用时: " << time2-time1 << "ms" << std::endl;
 
     ByteSet byteSet;
-    byteSet.append("AMLX"); // 写入Magic
-    byteSet.append(0x01);   // 写入Version
-    byteSet.append(0x00);   // 写入GlobalFlags（v1未启用）
+    byteSet.write("AMLX"); // 写入Magic
+    byteSet.write(0x01);   // 写入Version
+    byteSet.write(0x00);   // 写入GlobalFlags（v1未启用）
+
+    //byteSet.writeVarint(337);
+    //std::cout << byteSet.readVarint(6);
 
     byteSet.outToFile("output.bin");
 
