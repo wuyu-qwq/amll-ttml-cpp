@@ -9,8 +9,8 @@
 #include "tinyxml2/tinyxml2.h"
 
 struct CharInfo {
-    unsigned int startTime;
-    unsigned int endTime;
+    uint32_t startTime;
+    uint32_t endTime;
     std::string character;
     std::string roman;
 };
@@ -18,8 +18,8 @@ struct CharInfo {
 struct Para {
     bool paraPos;    // 段落位置，true为居右
     bool bg = false; // 背景歌词，true为背景歌词
-    unsigned int startTime;
-    unsigned int endTime;
+    uint32_t startTime;
+    uint32_t endTime;
     std::string key;
     std::vector<CharInfo> lyric;
     std::string translation;
@@ -33,7 +33,7 @@ struct Song {
 
 // 时间字符串解析函数（增强版）
 // 支持格式：hh:mm:ss.mmm, mm:ss.mmm, s.sss, s
-static unsigned int parseTime(const char* timeStr) {
+static uint32_t parseTime(const char* timeStr) {
     if (!timeStr) return 0;
     std::string s = timeStr;
     // trim
@@ -188,22 +188,24 @@ Song prase(std::string xmlContent) {
         result.metadata[meta->Attribute("key")].push_back(meta->Attribute("value"));
 
     // 提取逐字音译数据
-    tinyxml2::XMLElement* translation = metadata->FirstChildElement("iTunesMetadata")
-                                                ->FirstChildElement("transliterations")
-                                                ->FirstChildElement("transliteration");
-    std::map<std::string, std::vector<std::string>> romans;
-    for (tinyxml2::XMLElement* trans = translation->FirstChildElement("text"); trans;
-    trans = trans->NextSiblingElement("text")) {
-        std::string key = trans->Attribute("for");
-        for (tinyxml2::XMLElement* span = trans->FirstChildElement("span"); span;
-        span = span->NextSiblingElement("span"))
-            romans[key].push_back(span->GetText());
-    }
-    for (Para& para : result.lyrics) {
-        if (romans[para.key].empty()) continue;
-        for (unsigned short i = 0; i < para.lyric.size(); ++i)
-            para.lyric[i].roman = romans[para.key][i];
-    }
+    tinyxml2::XMLElement* translation = metadata->FirstChildElement("iTunesMetadata");
+	translation = translation ? translation->FirstChildElement("transliterations") : nullptr;
+    if (translation) {
+		translation = translation->FirstChildElement("transliteration");
+		std::map<std::string, std::vector<std::string>> romans;
+		for (tinyxml2::XMLElement* trans = translation->FirstChildElement("text"); trans;
+		trans = trans->NextSiblingElement("text")) {
+			std::string key = trans->Attribute("for");
+			for (tinyxml2::XMLElement* span = trans->FirstChildElement("span"); span;
+			span = span->NextSiblingElement("span"))
+				romans[key].push_back(span->GetText());
+		}
+		for (Para& para : result.lyrics) {
+			if (romans[para.key].empty()) continue;
+			for (uint16_t i = 0; i < para.lyric.size(); ++i)
+				para.lyric[i].roman = romans[para.key][i];
+		}
+	}
 
     return result;
 }
